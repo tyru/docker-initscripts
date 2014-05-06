@@ -1,0 +1,26 @@
+
+# This specifies containers starting automatically at boot.
+#   <container>:<alias> [<container>:<alias> ...]
+# Environment variable <alias>_docker_opts is loaded
+# for the container. See docker_opts for below.
+#autostart='tyru/log:log tyru/smtp:smtp'
+
+# There are two variables for docker option:
+# * $docker_opts: a common docker option between containers.
+# * $<alias>_docker_opts: a dedicated docker option for the container.
+# The following command are executed.
+# docker run -d $docker_opts $<alias>_docker_opts
+
+
+# This wouldn't work.
+# I gave up bridging and used NAT via docker0 ;-)
+#
+#docker_opts="--lxc-conf='lxc.network.type=veth'"
+#docker_opts="$docker_opts --lxc-conf='lxc.network.link=docker0'"
+#docker_opts="$docker_opts --lxc-conf='lxc.network.flags=up'"
+#
+#log_docker_opts='-h log.localdomain --lxc-conf=lxc.network.hwaddr=01:02:03:00:00:01'
+#smtp_docker_opts='-h smtp.localdomain --lxc-conf=lxc.network.hwaddr=01:02:03:00:00:02'
+
+#log_docker_opts='--name log -h log.localdomain -p 514:514 -v /var/log/docker:/var/log/docker:rw'
+#smtp_docker_opts='--name smtp -h smtp.localdomain -p 25:25'
