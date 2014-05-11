@@ -94,7 +94,7 @@ case "$1" in
 			2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
 		esac
 		;;
-	stop|status|restart|reload|force-reload)
+  stop|status|restart|reload|force-reload)
 		echo "Error: argument '$1' not supported" >&2
 		exit 3
 		;;
