@@ -75,7 +75,12 @@ do_start()
 		escaped_actname=`echo "$actname" | sed -re 's@/@\\\\/@g'`
 		image_id=$(docker ps | awk "\$2 ~ /$escaped_actname/ { print \$1 }")
 		if [ -z "$image_id" ]; then
-			docker run -d $all_docker_opts $actname
+			# 'docker rm $alias' to suppress the following error message:
+			#   Error: Conflict, The name <name> is already assigned to <hash>.
+			#   You have to delete (or rename) that container to be able to
+			#   assign <name> to a container again.
+			docker rm $alias 2>/dev/null
+			docker run -d --name $alias $all_docker_opts $actname
 		else
 			echo "warning: container $actname is already running." >&2
 		fi

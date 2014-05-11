@@ -9,7 +9,7 @@
 # * $docker_opts: a common docker option between containers.
 # * $<alias>_docker_opts: a dedicated docker option for the container.
 # The following command are executed.
-# docker run -d $docker_opts $<alias>_docker_opts
+# docker run -d --name <alias> $docker_opts $<alias>_docker_opts
 
 
 # This wouldn't work.
@@ -22,5 +22,5 @@
 #log_docker_opts='-h log.localdomain --lxc-conf=lxc.network.hwaddr=01:02:03:00:00:01'
 #smtp_docker_opts='-h smtp.localdomain --lxc-conf=lxc.network.hwaddr=01:02:03:00:00:02'
 
-#log_docker_opts='--name log -h log.localdomain -p 514:514 -v /var/log/docker:/var/log/docker:rw'
-#smtp_docker_opts='--name smtp -h smtp.localdomain -p 25:25'
+#log_docker_opts='-h log.localdomain -p 514:514 -v /var/log/docker:/var/log/docker:rw'
+#smtp_docker_opts='-h smtp.localdomain -p 25:25'
