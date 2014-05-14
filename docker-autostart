@@ -80,7 +80,7 @@ do_start()
 			#   You have to delete (or rename) that container to be able to
 			#   assign <name> to a container again.
 			docker rm $alias 2>/dev/null
-			docker run -d --name $alias $all_docker_opts $actname
+			docker run -d --name $alias $all_docker_opts $actname >/dev/null 2>&1
 		else
 			echo "warning: container $actname is already running." >&2
 		fi
