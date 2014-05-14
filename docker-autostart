@@ -81,6 +81,11 @@ do_start()
 			#   assign <name> to a container again.
 			docker rm $alias 2>/dev/null
 			docker run -d --name $alias $all_docker_opts $actname >/dev/null 2>&1
+			if [ $? -eq 0 ]; then
+				echo "Started container '$actname' as '$alias'."
+			else
+				echo "warning: 'docker run' returned failure code." >&2
+			fi
 		else
 			echo "warning: container $actname is already running." >&2
 		fi
