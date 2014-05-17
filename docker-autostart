@@ -1,10 +1,10 @@
 #! /bin/bash
 ### BEGIN INIT INFO
 # Provides:          docker-autostart
-# Required-Start:    $remote_fs $syslog docker
-# Required-Stop:
+# Required-Start:    $local_fs $remote_fs $syslog docker
+# Required-Stop:     $local_fs $remote_fs $syslog
 # Default-Start:     2 3 4 5
-# Default-Stop:
+# Default-Stop:      0 1 6
 # Short-Description: Auto-start docker container(s)
 # Description:       Auto-start docker container(s).
 #                    This scripts reads /etc/default/docker-autostart
@@ -20,6 +20,8 @@ PATH=/sbin:/usr/sbin:/bin:/usr/bin
 DESC="docker-autostart"
 NAME=docker-autostart
 SCRIPTNAME=/etc/init.d/$NAME
+INTEGRATE_SYSLOG_NG=false
+CONTAINER_OUT_SOCK=/log
 
 # Read configuration variable file if it is present
 [ -r /etc/default/$NAME ] && . /etc/default/$NAME
@@ -37,6 +39,53 @@ match() {
 	echo "$1" | egrep -q "$2"
 }
 
+each_container() {
+	callback=$1
+
+	if [ -z "$autostart" ]; then
+		echo 'error: $autostart is not defined in /etc/default/docker-autostart' >&2
+		return 2
+	fi
+
+	for c in `get_containers "$autostart"`; do
+		actname=`get_actual_name $c`
+		alias=`get_alias $c`
+		$callback $actname $alias
+	done
+
+	return 0
+}
+
+get_containers() {
+	autostart=$1
+	pat='^([a-zA-Z0-9_.-/]+):([a-zA-Z0-9_.-]+)$'
+	for c in $autostart; do
+		if match "$c" "$pat"; then
+			actname=`echo "$c" | sed -re 's@'"$pat"'@\1@'`
+			alias=`echo "$c" | sed -re 's@'"$pat"'@\2@'`
+		else
+			echo "warning: invalid container name: $c" >&2
+			continue
+		fi
+
+		echo "$actname:$alias "
+	done
+	return 0
+}
+
+get_actual_name() {
+	echo "$1" | sed -re 's/:.+//'
+}
+
+get_alias() {
+	echo "$1" | sed -re 's/^[^:]+://'
+}
+
+running_container() {
+	alias=$1
+	docker ps | egrep -q "\s+${alias}\s*\$"
+}
+
 #
 # Function that starts the daemon/service
 #
@@ -46,54 +95,92 @@ do_start()
 	#   0 if daemon has been started
 	#   1 if daemon was already running
 	#   2 if daemon could not be started
-	if [ -z "$autostart" ]; then
-		echo 'error: $autostart is not defined in /etc/default/docker-autostart' >&2
-		return 2
+
+	if [ $INTEGRATE_SYSLOG_NG = true ] &&
+	   [ -d /etc/syslog-ng/conf.d/ ]; then
+		rm -f /etc/syslog-ng/conf.d/80-docker-*
+		for c in `get_containers "$autostart"`; do
+			alias=`get_alias $c`
+			cat <<EOC >/etc/syslog-ng/conf.d/80-docker-$alias
+source s_docker_${alias} { unix-stream("/dev/docker-log-${alias}" keep-alive(yes)); };
+log { source(s_docker_${alias}); destination(d_docker); };
+EOC
+		done
+		service syslog-ng restart
 	fi
 
-	pat1='^([a-zA-Z0-9_/]+):([a-zA-Z_][a-zA-Z0-9_]*)$'
-	pat2='^[a-zA-Z_][a-zA-Z0-9_]*$'
-	for c in $autostart; do
-		if match "$c" "$pat1"; then
-			actname=`echo "$c" | sed -re 's@'"$pat1"'@\1@'`
-			alias=`echo "$c" | sed -re 's@'"$pat1"'@\2@'`
-		elif match "$c" "$pat2"; then
-			actname=$c
-			alias=$c
-		else
-			echo "warning: invalid container name: $c" >&2
-			continue
-		fi
-
-		# $docker_opts and $<alias>_docker_opts
-		# may be defined in /etc/default/docker-autostart.
-		# $docker_opts is a common docker option between containers.
-		# $<alias>_docker_opts is a dedicated docker option for the container.
-		alias_docker_opts=`eval "echo \\${${alias}_docker_opts}"`
-		all_docker_opts="$docker_opts $alias_docker_opts"
-
-		escaped_actname=`echo "$actname" | sed -re 's@/@\\\\/@g'`
-		image_id=$(docker ps | awk "\$2 ~ /$escaped_actname/ { print \$1 }")
-		if [ -z "$image_id" ]; then
-			# 'docker rm $alias' to suppress the following error message:
-			#   Error: Conflict, The name <name> is already assigned to <hash>.
-			#   You have to delete (or rename) that container to be able to
-			#   assign <name> to a container again.
-			docker rm $alias 2>/dev/null
-			docker run -d --name $alias $all_docker_opts $actname >/dev/null 2>&1
-			if [ $? -eq 0 ]; then
-				echo "Started container '$actname' as '$alias'."
-			else
-				echo "warning: 'docker run' returned failure code." >&2
-			fi
-		else
-			echo "warning: container $actname is already running." >&2
-		fi
-
-	done
-
-	return 0
+	each_container start_container
 }
+
+start_container() {
+	actname=$1
+	alias=$2
+
+	# $docker_opts and $<alias>_docker_opts
+	# may be defined in /etc/default/docker-autostart.
+	# $docker_opts is a common docker option between containers.
+	# $<alias>_docker_opts is a dedicated docker option for the container.
+	alias_docker_opts=`eval "echo \\${${alias}_docker_opts}"`
+	all_docker_opts="$docker_opts $alias_docker_opts"
+
+	if ! running_container $alias; then
+		if [ $INTEGRATE_SYSLOG_NG = true ] &&
+		   [ -S /dev/docker-log-${alias} ]; then
+			all_docker_opts="-v /dev/docker-log-${alias}:$CONTAINER_OUT_SOCK $all_docker_opts"
+		fi
+		# 'docker rm $alias' to suppress the following error message:
+		#   Error: Conflict, The name <name> is already assigned to <hash>.
+		#   You have to delete (or rename) that container to be able to
+		#   assign <name> to a container again.
+		docker rm $alias >/dev/null 2>&1
+		docker run -d --name $alias $all_docker_opts $actname >/dev/null
+		if [ $? -eq 0 ]; then
+			echo "Started container '$actname' as '$alias'."
+		else
+			echo "warning: 'docker run --name $alias ...' returned failure code." >&2
+		fi
+	else
+		echo "warning: container $actname is already running." >&2
+	fi
+}
+
+#
+# Function that stops the daemon/service
+#
+do_stop()
+{
+	# Return
+	#   0 if daemon has been stopped
+	#   1 if daemon was already stopped
+	#   2 if daemon could not be stopped
+	#   other if a failure occurred
+
+	each_container stop_container
+}
+
+stop_container() {
+	actname=$1
+	alias=$2
+
+	if running_container $alias; then
+		docker stop $alias >/dev/null
+		if [ $? -eq 0 ]; then
+			echo "Stopped container '$alias'."
+		else
+			echo "warning: 'docker stop $alias ...' returned failure code." >&2
+		fi
+	else
+		echo "warning: container $actname(aka $alias) is already stopped." >&2
+	fi
+}
+
+# Show statuses.
+show_status() {
+	running_containers=`docker ps | tail -n +2 | sed -re 's/.*\s+(\S+)\s*$/\1/'`
+	[ -z "$running_containers" ] && running_containers='(none)'
+	echo "Running containers: $(echo $running_containers)"
+}
+
 
 case "$1" in
   start)
@@ -104,15 +191,44 @@ case "$1" in
 			2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
 		esac
 		;;
-  stop|status|restart|reload|force-reload)
-		echo "Error: argument '$1' not supported" >&2
-		exit 3
+  stop)
+	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case "$?" in
+		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+		2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+	esac
+	;;
+  status)
+	show_status
+	;;
+  restart|force-reload)
+	#
+	# If the "reload" option is implemented then remove the
+	# 'force-reload' alias
+	#
+	log_daemon_msg "Restarting $DESC" "$NAME"
+	do_stop
+	case "$?" in
+	  0|1)
+		do_start
+		case "$?" in
+			0) log_end_msg 0 ;;
+			1) log_end_msg 1 ;; # Old process is still running
+			*) log_end_msg 1 ;; # Failed to start
+		esac
 		;;
+	  *)
+		# Failed to stop
+		log_end_msg 1
+		;;
+	esac
+	;;
   *)
-		#echo "Usage: $SCRIPTNAME {start|stop|restart|reload|force-reload}" >&2
-		echo "Usage: $SCRIPTNAME start" >&2
+		echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload}" >&2
 		exit 3
 		;;
 esac
 
 :
+
