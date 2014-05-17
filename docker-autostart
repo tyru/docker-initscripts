@@ -43,7 +43,7 @@ each_container() {
 	callback=$1
 
 	if [ -z "$autostart" ]; then
-		echo 'error: $autostart is not defined in /etc/default/docker-autostart' >&2
+		log_failure_msg 'error: $autostart is not defined in /etc/default/docker-autostart'
 		return 2
 	fi
 
@@ -64,7 +64,7 @@ get_containers() {
 			actname=`echo "$c" | sed -re 's@'"$pat"'@\1@'`
 			alias=`echo "$c" | sed -re 's@'"$pat"'@\2@'`
 		else
-			echo "warning: invalid container name: $c" >&2
+			log_warning_msg "Invalid container name: $c"
 			continue
 		fi
 
@@ -135,12 +135,12 @@ start_container() {
 		docker rm $alias >/dev/null 2>&1
 		docker run -d --name $alias $all_docker_opts $actname >/dev/null
 		if [ $? -eq 0 ]; then
-			echo "Started container '$actname' as '$alias'."
+			log_success_msg "Started container '$actname' as '$alias'."
 		else
-			echo "warning: 'docker run --name $alias ...' returned failure code." >&2
+			log_warning_msg "'docker run --name $alias ...' returned failure code."
 		fi
 	else
-		echo "warning: container $actname is already running." >&2
+		log_warning_msg "container $actname is already running."
 	fi
 }
 
@@ -165,12 +165,12 @@ stop_container() {
 	if running_container $alias; then
 		docker stop $alias >/dev/null
 		if [ $? -eq 0 ]; then
-			echo "Stopped container '$alias'."
+			log_daemon_msg "Stopped container '$alias'." "$NAME"
 		else
-			echo "warning: 'docker stop $alias ...' returned failure code." >&2
+			log_warning_msg "'docker stop $alias ...' returned failure code."
 		fi
 	else
-		echo "warning: container $actname(aka $alias) is already stopped." >&2
+		log_warning_msg "warning: container $actname(aka $alias) is already stopped."
 	fi
 }
 
@@ -178,7 +178,7 @@ stop_container() {
 show_status() {
 	running_containers=`docker ps | tail -n +2 | sed -re 's/.*\s+(\S+)\s*$/\1/'`
 	[ -z "$running_containers" ] && running_containers='(none)'
-	echo "Running containers: $(echo $running_containers)"
+	log_daemon_msg "Running containers: $(echo $running_containers)"
 }
 
 
