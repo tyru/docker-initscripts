@@ -12,15 +12,7 @@
 # docker run -d --name <alias> $docker_opts $<alias>_docker_opts
 
 
-# This wouldn't work.
-# I gave up bridging and used NAT via docker0 ;-)
-#
-#docker_opts="--lxc-conf='lxc.network.type=veth'"
-#docker_opts="$docker_opts --lxc-conf='lxc.network.link=docker0'"
-#docker_opts="$docker_opts --lxc-conf='lxc.network.flags=up'"
-#
-#log_docker_opts='-h log.localdomain --lxc-conf=lxc.network.hwaddr=01:02:03:00:00:01'
-#smtp_docker_opts='-h smtp.localdomain --lxc-conf=lxc.network.hwaddr=01:02:03:00:00:02'
-
 #log_docker_opts='-h log.localdomain -p 514:514 -v /var/log/docker:/var/log/docker:rw'
 #smtp_docker_opts='-h smtp.localdomain -p 25:25'
+
+#docker_opts="-v /dev/log:/dev/log --privileged"
