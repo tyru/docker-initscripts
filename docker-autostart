@@ -107,10 +107,10 @@ log { source(s_docker_${alias}); destination(d_docker); };
 EOC
 			done
 		fi
-		# Always restart syslog-ng because
+		# Always reload syslog-ng because
 		# config files may be deleted even if
 		# $INTEGRATE_SYSLOG_NG = false .
-		service syslog-ng restart
+		service syslog-ng reload
 	fi
 
 	each_container start_container
