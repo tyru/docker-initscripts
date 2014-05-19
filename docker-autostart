@@ -123,6 +123,7 @@ start_container() {
 	alias_docker_opts=`eval "echo \\${${alias}_docker_opts}"`
 	all_docker_opts="$docker_opts $alias_docker_opts"
 
+	log_daemon_msg "Starting container" "$alias"
 	if ! running_container $alias; then
 		if [ $INTEGRATE_SYSLOG_NG = true ] &&
 		   [ -S /dev/docker-log-${alias} ]; then
@@ -135,12 +136,14 @@ start_container() {
 		docker rm $alias >/dev/null 2>&1
 		docker run -d --name $alias $all_docker_opts $actname >/dev/null
 		if [ $? -eq 0 ]; then
-			log_success_msg "Started container '$actname' as '$alias'."
+			log_end_msg 0
 		else
-			log_warning_msg "'docker run --name $alias ...' returned failure code."
+			log_end_msg 1
+			#log_warning_msg "'docker run --name $alias ...' returned failure code."
 		fi
 	else
-		log_warning_msg "container $actname is already running."
+		log_end_msg 0
+		#log_warning_msg "container $actname is already running."
 	fi
 }
 
@@ -162,15 +165,18 @@ stop_container() {
 	actname=$1
 	alias=$2
 
+	log_daemon_msg "Stopping container" "$alias"
 	if running_container $alias; then
 		docker stop $alias >/dev/null
 		if [ $? -eq 0 ]; then
-			log_daemon_msg "Stopped container '$alias'." "$NAME"
+			log_end_msg 0
 		else
-			log_warning_msg "'docker stop $alias ...' returned failure code."
+			log_end_msg 1
+			#log_warning_msg "'docker stop $alias ...' returned failure code."
 		fi
 	else
-		log_warning_msg "warning: container $actname(aka $alias) is already stopped."
+		log_end_msg 0
+		#log_warning_msg "warning: container $actname(aka $alias) is already stopped."
 	fi
 }
 
@@ -178,7 +184,7 @@ stop_container() {
 show_status() {
 	running_containers=`docker ps | tail -n +2 | sed -re 's/.*\s+(\S+)\s*$/\1/'`
 	[ -z "$running_containers" ] && running_containers='(none)'
-	log_daemon_msg "Running containers: $(echo $running_containers)"
+	log_success_msg "Running containers: $(echo $running_containers)"
 }
 
 
