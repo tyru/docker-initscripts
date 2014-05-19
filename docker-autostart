@@ -96,16 +96,20 @@ do_start()
 	#   1 if daemon was already running
 	#   2 if daemon could not be started
 
-	if [ $INTEGRATE_SYSLOG_NG = true ] &&
-	   [ -d /etc/syslog-ng/conf.d/ ]; then
+	if [ -d /etc/syslog-ng/conf.d/ ]; then
 		rm -f /etc/syslog-ng/conf.d/80-docker-*
-		for c in `get_containers "$autostart"`; do
-			alias=`get_alias $c`
-			cat <<EOC >/etc/syslog-ng/conf.d/80-docker-$alias
+		if [ $INTEGRATE_SYSLOG_NG = true ]; then
+			for c in `get_containers "$autostart"`; do
+				alias=`get_alias $c`
+				cat <<EOC >/etc/syslog-ng/conf.d/80-docker-$alias
 source s_docker_${alias} { unix-stream("/dev/docker-log-${alias}" keep-alive(yes)); };
 log { source(s_docker_${alias}); destination(d_docker); };
 EOC
-		done
+			done
+		fi
+		# Always restart syslog-ng because
+		# config files may be deleted even if
+		# $INTEGRATE_SYSLOG_NG = false .
 		service syslog-ng restart
 	fi
 
