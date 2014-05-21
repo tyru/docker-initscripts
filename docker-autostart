@@ -22,6 +22,7 @@ NAME=docker-autostart
 SCRIPTNAME=/etc/init.d/$NAME
 INTEGRATE_SYSLOG_NG=false
 CONTAINER_OUT_SOCK=/log
+SKIP_STOP_WHEN_SHUTDOWN=true
 
 # Read configuration variable file if it is present
 [ -r /etc/default/$NAME ] && . /etc/default/$NAME
@@ -161,6 +162,13 @@ do_stop()
 	#   1 if daemon was already stopped
 	#   2 if daemon could not be stopped
 	#   other if a failure occurred
+
+	current_runlevel=`/sbin/runlevel | awk '{ print $2 }'`
+	if [ $SKIP_STOP_WHEN_SHUTDOWN = true ] &&
+	   [ "$current_runlevel" = "0" -o "$current_runlevel" = "6" ]; then
+		log_warning_msg "Ignoring 'stop' action due to shutdown..."
+		return 0
+	fi
 
 	each_container stop_container
 }
