@@ -1,4 +1,7 @@
 
+# Uncomment this to enable syslog-ng integration.
+#INTEGRATE_SYSLOG_NG=true
+
 # This specifies containers starting automatically at boot.
 #   <container>:<alias> [<container>:<alias> ...]
 # Environment variable <alias>_docker_opts is loaded
