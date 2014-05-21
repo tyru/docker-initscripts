@@ -111,7 +111,11 @@ EOC
 		# Always reload syslog-ng because
 		# config files may be deleted even if
 		# $INTEGRATE_SYSLOG_NG = false .
-		service syslog-ng reload
+		if pgrep syslog-ng >/dev/null; then
+			service syslog-ng reload
+		elif [ $INTEGRATE_SYSLOG_NG = true ]; then
+			service syslog-ng start
+		fi
 	fi
 
 	each_container start_container
