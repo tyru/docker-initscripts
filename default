@@ -11,6 +11,21 @@
 # The following command are executed.
 # docker run -d --name <alias> $docker_opts $<alias>_docker_opts
 
+# Log server
+#log_docker_opts='-h log.localdomain -p 514:514 -v /var/log/localdomain:/var/log/localdomain:rw'
+
+# SMTP server
+#smtp_docker_opts='-h smtp.localdomain -p 25:25'
+
+# DHCP server
+#dhcp_docker_opts='-h dhcp.localdomain --net=host -p 67:67 -p 69:69'
+
+# ProxyDHCP and TFTP service for PXE, and Web service for Preseed.
+#preseeder_docker_opts='-h preseeder.localdomain --net=host -p 67:67 -p 69:69 -p 4011:4011 -p 80:80 -v /var/lib/tftpboot:/var/lib/tftpboot:ro -v /usr/share/nginx/www:/usr/share/nginx/www:ro'
+
+# Zabbix server (NOTE: The host port is conflicted with above 'preseeder' config. You must change it)
+#zabbix_docker_opts='-h zabbix.localdomain -p 80:80 -p 10051:10051 -v /var/lib/mysql:/var/lib/mysql:rw'
+
 
 #log_docker_opts='-h log.localdomain -p 514:514 -v /var/log/docker:/var/log/docker:rw'
 #smtp_docker_opts='-h smtp.localdomain -p 25:25'
