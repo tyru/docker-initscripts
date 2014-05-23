@@ -124,16 +124,21 @@ EOC
 start_container() {
 	actname=$1
 	alias=$2
+	all_docker_opts=
 
-	# Global docker options (defined in /etc/default/docker-autostart).
-	# This option is common between containers.
-	all_docker_opts=$docker_opts
+	######## <alias>_hostname ########
+	# Hostname for the container.
+	hostname=`eval "echo \\${${alias}_hostname}"`
+	[ "$hostname" ] && all_docker_opts="-h $hostname"
 
-	# Dedicated docker options for the container.
-	# (defined in /etc/default/docker-autostart)
-	alias_docker_opts=`eval "echo \\${${alias}_docker_opts}"`
-	all_docker_opts="$all_docker_opts $alias_docker_opts"
+	######## <alias>_ports ########
+	# Open ports. Just pass it to -p option.
+	ports=`eval "echo \\${${alias}_ports}"`
+	for i in $ports; do
+		all_docker_opts="$all_docker_opts -p $i"
+	done
 
+	######## <alias>_persistent_dirs ########
 	# Save persistent files under:
 	#   /var/lib/docker-persistent/<alias>/<dir>
 	persistent_dirs=`eval "echo \\${${alias}_persistent_dirs}"`
@@ -141,6 +146,24 @@ start_container() {
 		i=`echo $i | sed -re 's@^/+@@'`
 		all_docker_opts="$all_docker_opts -v /var/lib/docker-persistent/${alias}/${i}:/${i}:rw"
 	done
+
+	######## <alias>_bind_mount_dirs ########
+	# Bind mounted dirs. Just pass it to -v option.
+	bind_mount_dirs=`eval "echo \\${${alias}_bind_mount_dirs}"`
+	for i in $bind_mount_dirs; do
+		all_docker_opts="$all_docker_opts -v $i"
+	done
+
+	######## <alias>_docker_opts ########
+	# Dedicated docker options for the container.
+	# (defined in /etc/default/docker-autostart)
+	alias_docker_opts=`eval "echo \\${${alias}_docker_opts}"`
+	all_docker_opts="$all_docker_opts $alias_docker_opts"
+
+	######## docker_opts ########
+	# Global docker options (defined in /etc/default/docker-autostart).
+	# This option is common between containers.
+	all_docker_opts="$all_docker_opts $docker_opts"
 
 	log_daemon_msg "Starting container" "$alias"
 	if ! running_container $alias; then
