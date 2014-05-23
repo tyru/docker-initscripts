@@ -125,12 +125,22 @@ start_container() {
 	actname=$1
 	alias=$2
 
-	# $docker_opts and $<alias>_docker_opts
-	# may be defined in /etc/default/docker-autostart.
-	# $docker_opts is a common docker option between containers.
-	# $<alias>_docker_opts is a dedicated docker option for the container.
+	# Global docker options (defined in /etc/default/docker-autostart).
+	# This option is common between containers.
+	all_docker_opts=$docker_opts
+
+	# Dedicated docker options for the container.
+	# (defined in /etc/default/docker-autostart)
 	alias_docker_opts=`eval "echo \\${${alias}_docker_opts}"`
-	all_docker_opts="$docker_opts $alias_docker_opts"
+	all_docker_opts="$all_docker_opts $alias_docker_opts"
+
+	# Save persistent files under:
+	#   /var/lib/docker-persistent/<alias>/<dir>
+	persistent_dirs=`eval "echo \\${${alias}_persistent_dirs}"`
+	for i in $persistent_dirs; do
+		i=`echo $i | sed -re 's@^/+@@'`
+		all_docker_opts="$all_docker_opts -v /var/lib/docker-persistent/${alias}/${i}:/${i}:rw"
+	done
 
 	log_daemon_msg "Starting container" "$alias"
 	if ! running_container $alias; then
